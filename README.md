@@ -112,6 +112,29 @@ It is built for one human across channels; for a hard split between people, use 
 Channel id shapes beyond the `channel:id` form (for example phone-number senders) should be verified
 against one live message to confirm the scoped form matches.
 
+## Setting the owner ids
+
+To fill the owner list in practice:
+
+1. **Find each channel's scoped id.** The simplest source is pairing: have the owner DM the bot once,
+   run `openclaw pairing list --channel <channel>` to read the sender id, then
+   `openclaw pairing approve <channel> <code>`. Approving prints the scoped id and, when
+   `commands.ownerAllowFrom` is empty, seeds that first id into it for you. The id also appears in the
+   gateway log's inbound line, or you can read it from the channel directly (Telegram numeric id via
+   `@userinfobot`, Discord "Copy User ID" with Developer Mode on, Slack member id).
+2. **Enumerate the rest.** Pairing seeds only the first owner; add every other channel's scoped id
+   yourself. Put them in `commands.ownerAllowFrom` (host-wide, and also governs command access) or in
+   the plugin's `owners` (plugin-only). The two lists merge, so either works:
+
+   ```json
+   {
+     "commands": { "ownerAllowFrom": ["telegram:12345", "discord:67890", "slack:U123"] }
+   }
+   ```
+
+No gateway restart is needed; the list is re-read each turn. At register the plugin warns if it
+resolved zero scoped ids (nothing will propagate) or if it ignored any bare, unscoped id.
+
 ## Configuration
 
 Set under `plugins.entries.cross-session-memory.config`:
