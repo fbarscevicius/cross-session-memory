@@ -4,6 +4,15 @@
   "description": "Near-real-time cross-session memory propagation for OpenClaw, as a standalone plugin.",
   "type": "module",
   "license": "MIT",
+  "author": "Fernando Barscevicius <f.barscevicius@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fbarscevicius/cross-session-memory.git"
+  },
+  "homepage": "https://github.com/fbarscevicius/cross-session-memory#readme",
+  "bugs": {
+    "url": "https://github.com/fbarscevicius/cross-session-memory/issues"
+  },
   "openclaw": {
     "extensions": ["./src/index.ts"],
     "runtimeExtensions": ["./dist/index.js"]
