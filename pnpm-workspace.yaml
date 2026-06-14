@@ -1,0 +1,7 @@
+# pnpm 11 reads workspace-level settings from this file. autoInstallPeers:false keeps the
+# optional `openclaw` peer (which would drag in hundreds of packages) out of the install;
+# only the dev tools (typescript, vitest, @types/node) are installed.
+autoInstallPeers: false
+# esbuild (a vitest dependency) needs its postinstall to fetch its platform binary.
+allowBuilds:
+  esbuild: true

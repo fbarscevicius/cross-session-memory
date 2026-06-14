@@ -1,0 +1,34 @@
+{
+  "name": "cross-session-memory",
+  "version": "0.1.0",
+  "description": "Near-real-time cross-session memory propagation for OpenClaw, as a standalone plugin.",
+  "type": "module",
+  "license": "MIT",
+  "openclaw": {
+    "extensions": ["./src/index.ts"],
+    "runtimeExtensions": ["./dist/index.js"]
+  },
+  "files": [
+    "dist/",
+    "src/",
+    "openclaw.plugin.json",
+    "README.md"
+  ],
+  "peerDependencies": {
+    "openclaw": ">=2026.6.0"
+  },
+  "peerDependenciesMeta": {
+    "openclaw": { "optional": true }
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.0"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "prepublishOnly": "npm run typecheck && npm run test && npm run build"
+  }
+}
