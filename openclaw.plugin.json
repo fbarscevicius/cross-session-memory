@@ -1,0 +1,24 @@
+{
+  "id": "cross-session-memory",
+  "name": "Cross-Session Memory",
+  "description": "Propagates durable, owner-stated facts between one agent's isolated channel sessions in near real-time via a shared fact store. Observes each turn's incoming prompt, distills facts, and injects a ranked, budgeted, lower-authority reference slice into the owner's other direct-message sessions as cacheable system context.",
+  "activation": {
+    "onStartup": true
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "enabled": { "type": "boolean" },
+      "owners": { "type": "array", "items": { "type": "string" } },
+      "minPromptChars": { "type": "integer" },
+      "maxFacts": { "type": "integer" },
+      "charBudget": { "type": "integer" },
+      "ttlHours": { "type": "number" }
+    }
+  },
+  "uiHints": {
+    "enabled": { "label": "Enabled", "help": "Turn cross-session propagation on or off." },
+    "owners": { "label": "Owner IDs", "help": "Extra sender ids treated as the owner, merged with commands.ownerAllowFrom. Must be channel-scoped (slack:U123); a bare id is not honored, and a wildcard (*) shares nothing." }
+  }
+}
