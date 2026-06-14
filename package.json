@@ -2,7 +2,18 @@
   "name": "cross-session-memory",
   "version": "0.1.0",
   "description": "Near-real-time cross-session memory propagation for OpenClaw, as a standalone plugin.",
+  "keywords": [
+    "openclaw",
+    "openclaw-plugin",
+    "plugin",
+    "memory",
+    "cross-session",
+    "cross-channel",
+    "sqlite"
+  ],
   "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "license": "MIT",
   "author": "Fernando Barscevicius <f.barscevicius@gmail.com>",
   "repository": {
@@ -28,6 +39,9 @@
   },
   "peerDependenciesMeta": {
     "openclaw": { "optional": true }
+  },
+  "engines": {
+    "node": ">=22.19"
   },
   "devDependencies": {
     "@types/node": "^24.3.0",
