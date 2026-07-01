@@ -17,20 +17,16 @@ export default definePluginEntry({
     "Propagates durable, owner-stated facts between one agent's isolated channel sessions in near real-time via a shared fact store.",
   register(api) {
     const options = resolveOptions(api.pluginConfig);
-    if (!options.enabled) return; // enabled:false installs no hook
+    if (!options.enabled) return;
 
-    // Resolve the owner allowlist PER EVENT, not once at register. The host swaps the config snapshot
-    // at runtime (the first pairing seeds ownerAllowFrom when empty, and operators edit it), so a
-    // matcher frozen at register would stay stale until a gateway restart. Matching is channel-scoped
-    // only and ignores "*" (fail closed).
+    // Resolve the owner allowlist per event, not once at register: the host swaps the config snapshot at
+    // runtime (pairing seeds it, operators edit it), so a matcher frozen at register would go stale.
     const isOwner = (senderId: string | undefined | null, channel: string | undefined | null): boolean => {
       const entries = resolveOwnerEntries(api.runtime.config.current(), options.owners);
       return matchesOwner(buildOwnerMatcher(entries), channel, senderId);
     };
 
-    // Tell the operator at register whether the gate is alive, loudly. A bare (non-channel-scoped) id
-    // never matches here, and an empty resolved set means nothing will ever propagate; both would
-    // otherwise fail silently.
+    // Warn loudly at register: a bare id never matches and an empty set never propagates, both silent otherwise.
     const { scoped, bare } = classifyOwnerEntries(resolveOwnerEntries(api.runtime.config.current(), options.owners));
     if (bare.length > 0) {
       api.logger.warn?.(
@@ -52,10 +48,8 @@ export default definePluginEntry({
     const store = new FactStore(join(dir, "facts.sqlite"));
 
     const now = (): number => Date.now();
-    // No agentId, no model: the host facade rejects (throws) an overriding agentId/model unless the
-    // operator grants plugins.entries.<id>.llm.allowAgentIdOverride / allowModelOverride, so dropping
-    // both makes it structurally impossible to forward one. With no bound agent, extraction resolves
-    // the gateway's default agent model, not necessarily the conversation agent's.
+    // No agentId or model: the host facade throws on an override unless the operator grants it, so
+    // omitting both makes forwarding one impossible. Extraction resolves the gateway's default agent model.
     const complete = async (params: { system: string; user: string }): Promise<string> => {
       const result = await api.runtime.llm.complete({
         messages: [{ role: "user", content: params.user }],
@@ -67,15 +61,13 @@ export default definePluginEntry({
       return result.text;
     };
 
-    // One before_prompt_build hook. It is a prompt-injection hook, allowed by default (a conversation
-    // hook would need an operator's allowConversationAccess grant). The ctx carries senderId for the
-    // owner gate; injection returns prependSystemContext, the cacheable system-prompt surface.
+    // One before_prompt_build hook (a prompt-injection hook, allowed by default; a conversation hook
+    // would need allowConversationAccess). Injection returns prependSystemContext, the cacheable surface.
     api.on("before_prompt_build", (event, ctx) => {
       // Prefer the host's authoritative resolved agent id; derive from sessionKey only if absent.
       const agentId = ctx.agentId?.trim() || resolveAgentIdFromSessionKey(ctx.sessionKey);
 
-      // Write path: fire-and-forget with its own detached error containment. The extraction call is
-      // bounded by an internal timeout, so the detached promise cannot hang indefinitely.
+      // Write path: fire-and-forget, timeout-bounded, with detached error containment.
       void observe(
         { store, complete, now, isOwner, options },
         {
@@ -87,8 +79,6 @@ export default definePluginEntry({
         },
       )
         .then((outcome) => {
-          // A debug signal so a correctly-configured-but-idle install and a misconfigured one are
-          // distinguishable; the owner-gate drop carries the raw sender/channel to debug the gate.
           if (outcome.kind === "wrote") {
             api.logger.debug?.(`cross-session-memory: wrote ${outcome.ops} fact(s) for ${agentId}`);
           } else if (outcome.kind === "owner-skip") {

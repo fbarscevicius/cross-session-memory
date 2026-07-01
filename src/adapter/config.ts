@@ -1,18 +1,11 @@
 import { clampInt, clampNumber, DEFAULT_OPTIONS } from "../core/defaults.js";
 import type { Options } from "../core/defaults.js";
 
-/** Minimal structural view of the config we read; assignable from DeepReadonly<OpenClawConfig>. */
 type OwnerConfigView = {
   commands?: { ownerAllowFrom?: ReadonlyArray<string | number> };
 };
 
-/**
- * Raw owner entries: the canonical commands.ownerAllowFrom (the same surface command authorization
- * uses, seeded by pairing) unioned with any extra ids from plugin config. Canonicalization and
- * matching live in core/owner.ts. Matching is intentionally stricter than the host's command-auth
- * allowlist: it is channel-scoped only (no bare ids, no "*"), because a bare id collides across
- * channels and this is a privacy store rather than a command-auth gate.
- */
+// Union of commands.ownerAllowFrom (seeded by pairing) and the plugin's own owners. Matching lives in owner.ts.
 export function resolveOwnerEntries(
   config: OwnerConfigView | undefined,
   extraOwners: string[],
@@ -23,7 +16,6 @@ export function resolveOwnerEntries(
   return entries;
 }
 
-/** Resolve and clamp every advertised plugin config key; unknown or invalid values fall to defaults. */
 export function resolveOptions(pluginConfig: Record<string, unknown> | undefined): Options {
   const cfg = pluginConfig ?? {};
   return {

@@ -3,11 +3,7 @@ import { MAX_FACT_VALUE_CHARS } from "./defaults.js";
 import { stripFrameTokens } from "./frame.js";
 import type { ExtractionOp, Fact } from "./store.js";
 
-/**
- * Stable per-text content hash for idempotency: the same text is never extracted twice. Keyed on
- * (agentId, text), not the session, so the same owner sending the same text on two channels (one
- * agent partition, two session lanes) extracts once; the duplicate would NOOP in applyOp anyway.
- */
+// Idempotency hash keyed on (agentId, text), not the session, so the same text on two channels extracts once.
 export function contentHash(agentId: string, text: string): string {
   return createHash("sha256").update(agentId).update("\n").update(text).digest("hex");
 }
@@ -27,7 +23,6 @@ const SYSTEM_PROMPT = [
   "importance: 0.0 trivial, 1.0 critical. Return [] when there is no durable fact.",
 ].join("\n");
 
-/** Build the retrieval-augmented extraction prompt. */
 export function buildExtractionPrompt(
   recent: Fact[],
   allKeys: string[],
@@ -40,10 +35,7 @@ export function buildExtractionPrompt(
   return { system, user };
 }
 
-/**
- * Parse model output into validated ops. Model output is treated as hostile: any parse or shape
- * failure yields [] and the write is skipped, never thrown. Values are whitespace-collapsed and capped.
- */
+// Model output is hostile: any parse or shape failure yields [] and skips the write, never throws.
 export function parseOps(text: string): ExtractionOp[] {
   let parsed: unknown;
   try {
@@ -70,10 +62,7 @@ export function parseOps(text: string): ExtractionOp[] {
   return ops;
 }
 
-/**
- * Strip frame delimiters, collapse whitespace (kills injected newlines), and cap length before the
- * value enters the store. Order matters: strip tokens first, then collapse the gaps they leave.
- */
+// Strip frame tokens before collapsing whitespace, so the gaps they leave collapse too. Caps length.
 function sanitizeValue(raw: string): string {
   return stripFrameTokens(raw).replace(/\s+/g, " ").trim().slice(0, MAX_FACT_VALUE_CHARS);
 }

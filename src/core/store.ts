@@ -47,10 +47,9 @@ type FactRow = {
 };
 
 /**
- * The shared fact store and blackboard. One SQLite file; rows are scoped by agent_id (the host's
- * canonical resolved agent id). node:sqlite is synchronous: the CAS in applyOp is a single
- * BEGIN IMMEDIATE transaction with no await inside. WAL + busy_timeout are belt-and-suspenders across
- * separate processes (the CLI runner); within one gateway process there is no contention.
+ * Shared fact store (the blackboard). One SQLite file, rows scoped by agent_id. node:sqlite is
+ * synchronous, so applyOp's CAS is one BEGIN IMMEDIATE transaction; WAL + busy_timeout only matter for
+ * the separate CLI process, not within one gateway.
  */
 export class FactStore {
   private readonly db: DatabaseSync;
@@ -106,7 +105,6 @@ export class FactStore {
       .run(agentId, contentHash);
   }
 
-  /** Most-recent fact VALUES for the extraction context (bounded by RETRIEVAL_LIMIT). */
   getRecentFacts(agentId: string, limit: number): Fact[] {
     const rows = this.db
       .prepare("SELECT * FROM facts WHERE agent_id = ? ORDER BY observed_at DESC LIMIT ?")
@@ -114,11 +112,7 @@ export class FactStore {
     return rows.map(rowToFact);
   }
 
-  /**
-   * Existing keys for the agent, so extraction can reuse them for dedup past the value window. Bounded
-   * and importance-first so the prompt does not grow without limit as the store fills; uses the
-   * (agent_id, importance, observed_at) index.
-   */
+  // Importance-first, bounded keys so the extraction dedup list does not grow without limit as the store fills.
   listFactKeys(agentId: string, limit: number): string[] {
     const rows = this.db
       .prepare("SELECT fact_key FROM facts WHERE agent_id = ? ORDER BY importance DESC, observed_at DESC LIMIT ?")
@@ -126,11 +120,8 @@ export class FactStore {
     return rows.map((row) => row.fact_key);
   }
 
-  /**
-   * All of an agent's facts, for the read path to score. The set is bounded by the TTL and pruned on
-   * both the write and read paths, so reading it whole lets inject rank every live fact by recency x
-   * importance without an importance-first cap that would starve recent low-importance facts.
-   */
+  // Whole live set (TTL-bounded) so inject can rank by recency x importance without a cap that would
+  // starve recent low-importance facts.
   readRankingCandidates(agentId: string): Fact[] {
     const rows = this.db.prepare("SELECT * FROM facts WHERE agent_id = ?").all(agentId) as FactRow[];
     return rows.map(rowToFact);
@@ -141,11 +132,8 @@ export class FactStore {
     return rows.map(rowToFact);
   }
 
-  /**
-   * Conflict resolution as an atomic compare-and-set. Overwrite only when the incoming observedAt is
-   * strictly newer; keep the prior value in superseded[]. An identical key+value is a no-op (loop
-   * backstop). Values are length-capped. One synchronous transaction, no await inside.
-   */
+  // Conflict resolution as an atomic CAS: overwrite only when observedAt is strictly newer, keeping the
+  // prior value in superseded[]. Identical key+value is a no-op. One synchronous transaction.
   applyOp(op: ExtractionOp, ctx: ApplyContext): ApplyResult {
     if (op.op === "NOOP") return "noop";
     const key = op.factKey.trim().slice(0, MAX_FACT_KEY_CHARS);
@@ -213,7 +201,7 @@ export class FactStore {
     }
   }
 
-  /** Bound storage growth: drop this agent's facts and seen rows older than the cutoff (TTL). */
+  // Drop this agent's facts and seen rows older than the cutoff.
   pruneExpired(agentId: string, cutoff: number): void {
     this.db.prepare("DELETE FROM facts WHERE agent_id = ? AND observed_at < ?").run(agentId, cutoff);
     this.db.prepare("DELETE FROM seen_messages WHERE agent_id = ? AND observed_at < ?").run(agentId, cutoff);

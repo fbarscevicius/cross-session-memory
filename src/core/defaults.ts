@@ -1,4 +1,3 @@
-/** Operator-tunable option set, resolved and clamped from plugin config at the adapter boundary. */
 export type Options = {
   enabled: boolean;
   owners: string[];
@@ -8,31 +7,29 @@ export type Options = {
   ttlHours: number;
 };
 
-/** Defaults for every advertised config key (see README "Configuration"). */
 export const DEFAULT_OPTIONS: Options = {
   enabled: true,
   owners: [],
-  // The all-chatter denylist and emoji/punctuation check in salience.ts do most of the noise
-  // filtering; this floor only drops 1-3 char fragments, low enough to pass real short facts
-  // ("ENFP", "vegan", "6ft2"). Self-referential openers ("I'm AB+") bypass it entirely.
+  // Floor only drops 1-3 char fragments; salience.ts does the real filtering and self-referential
+  // openers ("I'm AB+") bypass it.
   minPromptChars: 4,
   maxFacts: 8,
   charBudget: 600,
   ttlHours: 72,
 };
 
-/** Internal constants, deliberately not operator-configurable to keep the config surface small. */
-export const RETRIEVAL_LIMIT = 10; // bound the fact VALUES fed into the extraction prompt
-export const MAX_EXTRACTION_KEYS = 50; // cap the dedup key list sent to extraction so it cannot grow unbounded
-export const MAX_SUPERSEDED = 5; // bound retained conflict history per fact
-export const MAX_FACT_VALUE_CHARS = 200; // cap untrusted fact values before storing/injecting
+// Internal constants, kept off the config surface on purpose.
+export const RETRIEVAL_LIMIT = 10;
+export const MAX_EXTRACTION_KEYS = 50;
+export const MAX_SUPERSEDED = 5;
+export const MAX_FACT_VALUE_CHARS = 200;
 export const MAX_FACT_KEY_CHARS = 64;
-export const RECENCY_HALF_LIFE_HOURS = 24; // recency decay half-life in the ranking score
+export const RECENCY_HALF_LIFE_HOURS = 24;
 export const EXTRACTION_MAX_TOKENS = 512;
 export const EXTRACTION_TEMPERATURE = 0;
-export const EXTRACTION_TIMEOUT_MS = 10_000; // bound the detached extraction call
+export const EXTRACTION_TIMEOUT_MS = 10_000;
 
-/** Ranking weights; they sum to 1 so the combined score stays in [0, 1]. */
+// Weights sum to 1 so the score stays in [0, 1].
 export const WEIGHT_RECENCY = 0.5;
 export const WEIGHT_IMPORTANCE = 0.5;
 
