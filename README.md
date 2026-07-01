@@ -1,12 +1,16 @@
 # cross-session-memory
 
-**Give one agent a memory that follows you across channels.** You talk to the
-same [OpenClaw](https://github.com/openclaw/openclaw) agent on Slack, WhatsApp,
-and Telegram, but each channel is its own isolated session, so a fact you stated
-this morning on one is unknown to the others this afternoon. cross-session-memory
-closes that gap: it distills the durable facts you state, keeps them in a shared
-per-agent store, and hands your other sessions a short, ranked reference slice on
-your next turn there.
+**Cross-channel memory for one OpenClaw agent, built from the durable facts you
+state.** You talk to the same [OpenClaw](https://github.com/openclaw/openclaw)
+agent on Slack, WhatsApp, and Telegram. By default OpenClaw keeps continuity
+across those channels by pooling them into one session, so every turn on every
+channel reads the full conversation history from all of them. That works, but for
+a heavy user the shared transcript grows long, noisy, and expensive: unrelated
+chatter from three channels sits in the context window of a fourth, and every turn
+re-pays for the whole pile. cross-session-memory keeps the same continuity on a
+fraction of the context. It distills the durable facts you state, keeps them in a
+shared per-agent store, and hands each of your other sessions a short, ranked
+reference slice of just those facts on your next turn there.
 
 A standalone OpenClaw plugin. No fork and no core patch: it rides the public
 `before_prompt_build` hook on a stock gateway. MIT licensed.
@@ -15,18 +19,25 @@ A standalone OpenClaw plugin. No fork and no core patch: it rides the public
 
 ## The problem
 
-One agent, many channels. OpenClaw keeps each channel's conversation in its own
-session so threads never bleed into each other, which is the right default and
-also the reason the agent forgets across them. Tell it on Telegram that you are
-AB+ and flying to Lisbon on Friday, and the Slack session has heard neither. The
-blunt fixes cost something: share one conversation window and the threads cross;
-route everything through a hand-maintained memory file and you are back to
-bookkeeping.
+One agent, many channels, and by default one shared pool of context behind them.
+To let the agent remember across channels, OpenClaw's default `dmScope = "main"`
+routes every direct message into a single session, so the Slack thread, the
+WhatsApp thread, and the Telegram thread all append to and read from one growing
+transcript. That buys continuity at a price that scales with use: the context
+window fills with every channel's history, every turn re-bills the accumulated
+pile, and noise from one channel shapes replies on another. Tell it on Telegram
+that you are AB+ and flying to Lisbon on Friday, and Slack has that fact, wrapped
+in every unrelated Telegram message that came with it.
+
+The blunt alternatives trade one problem for another. Split the sessions so each
+channel is clean, and the agent forgets across them. Route everything through a
+hand-maintained memory file, and you are back to bookkeeping.
 
 ## What it does
 
-cross-session-memory propagates the small set of durable facts you state, and
-only those, across your own channels. Four commitments shape it:
+cross-session-memory keeps the cross-channel continuity and pays only for what
+matters: the small set of durable facts you state, and only those. Four
+commitments shape it:
 
 - **Only facts you state, only yours.** Every read and write is owner-gated to
   your channel-scoped ids. A contact's message in a group is never stored, and
@@ -76,29 +87,34 @@ openclaw plugins install cross-session-memory
 
 Then restart your gateway.
 
-## Making it propagate (the one precondition)
+## Turning off the default sharing (required)
 
-At the default `session.dmScope = "main"`, every direct message across every
-channel collapses into one session. There is nothing to propagate, so the plugin
-is correctly inert. It starts working once the owner's direct-message sessions
-diverge, which happens under `dmScope` of `per-channel-peer`,
-`per-account-channel-peer`, or `per-peer`.
+The plugin is the lean replacement for OpenClaw's shared-context default, and it
+does not switch that default off for you. Two paths carry context across an
+agent's channels; both stay on until you disable them, and until you do, the
+plugin has nothing to add over what the pooled session already shares.
+
+**1. Split the pooled session.** At the default `session.dmScope = "main"`, every
+direct message across every channel collapses into one session, which is the big
+shared transcript itself. There is nothing left for the plugin to propagate, so it
+is correctly inert. Give each channel its own session so the pooling stops:
 
 ```json
 { "session": { "dmScope": "per-channel-peer" } }
 ```
 
-### Isolating channels fully (optional)
+(`per-account-channel-peer` and `per-peer` also diverge the owner's sessions.) On
+its own this makes each channel clean and forgetful, which is where the plugin
+takes over: it rides a separate hook and starts propagating your stated facts
+across the now-isolated sessions.
 
-A non-main `dmScope` splits the conversation windows, but OpenClaw still carries
-context across an agent's channels by a second path: the agent's workspace
-bootstrap files (`MEMORY.md`, `USER.md`, `AGENTS.md`, and the rest), which the
-host injects into every session and the agent can write to itself. So a fact the
-agent writes to `MEMORY.md` on one channel still reaches the others without this
-plugin.
-
-To make this plugin's scoped facts the only thing your sessions share (for an A/B
-test, or as the intended deployment), turn the bootstrap injection off too:
+**2. Turn off the workspace bootstrap injection.** Splitting the session leaves a
+second shared path: the agent's workspace bootstrap files (`MEMORY.md`, `USER.md`,
+`AGENTS.md`, and the rest), which the host injects into every session and the
+agent can write to itself. So a fact the agent records in `MEMORY.md` on one
+channel still reaches the others, and you still pay for those files on every turn.
+Switch that injection off so the plugin's scoped facts are the only thing your
+sessions share:
 
 ```json
 {
@@ -111,9 +127,13 @@ This plugin rides a separate hook, so it keeps propagating while the shared
 workspace memory goes quiet. The switch is all-or-nothing for bootstrap files, so
 it also drops the agent's persona; with no `AGENTS.md` telling the agent to
 maintain `MEMORY.md`, it has no standing reason to persist facts to disk, which is
-part of why isolation holds. For a hard guarantee that nothing travels by file,
-deny the agent's filesystem tools (`agents.<id>.tools`). A bundled memory plugin
-is a third path; set `plugins.slots.memory: "none"` to remove it.
+part of why the isolation holds. For a hard guarantee that nothing travels by
+file, deny the agent's filesystem tools (`agents.<id>.tools`). A bundled memory
+plugin is a third path; set `plugins.slots.memory: "none"` to remove it.
+
+With both paths off, the only thing crossing your channels is the plugin's ranked
+slice of durable facts: continuity at the cost of a handful of facts per turn
+instead of the full pooled transcript.
 
 ## Owner setup
 
