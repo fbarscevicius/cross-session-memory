@@ -1,6 +1,6 @@
 {
   "name": "cross-session-memory",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Near-real-time cross-session memory propagation for OpenClaw, as a standalone plugin.",
   "keywords": [
     "openclaw",
@@ -25,8 +25,12 @@
     "url": "https://github.com/fbarscevicius/cross-session-memory/issues"
   },
   "openclaw": {
-    "extensions": ["./src/index.ts"],
-    "runtimeExtensions": ["./dist/index.js"]
+    "extensions": [
+      "./src/index.ts"
+    ],
+    "runtimeExtensions": [
+      "./dist/index.js"
+    ]
   },
   "files": [
     "dist/",
@@ -38,7 +42,9 @@
     "openclaw": ">=2026.6.0"
   },
   "peerDependenciesMeta": {
-    "openclaw": { "optional": true }
+    "openclaw": {
+      "optional": true
+    }
   },
   "engines": {
     "node": ">=22.19"
